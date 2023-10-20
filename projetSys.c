@@ -79,25 +79,19 @@ void dumpDictionnaire(DataPipes data,int (*pipes)[2],int* mainPipe,int processNu
 }
 
 
-int main()
-{
-    //-----------------------------------------------------------------------------
-    // lecture d'argument de commande qui est le nombre de processus 
-    // il faut bien faire attention à lire un entier >1
-
-        //TODO
-
-    //-----------------------------------------------------------------------------
-
-
-    
-    /*test : on demande à l'utilisateur de saisir un entier et on le sauvegarde 
-    // dans processNumber
-    */
-    //-----------------------------------------------------------------------------
+int main(int argc,char* argv[]){
     int processNumber = 0;
-    printf("Veuillez saisir le nombre de processus : \n");
-    scanf("%d",&processNumber);
+
+    if(argc != 2){
+        printf("nombre de node n'est pas correct\n");
+        return 1;
+    }else{
+    int processNumber = atoi(argv[1]);
+    
+    //-----------------------------------------------------------------------------
+    
+   
+    //-----------------------------------------------------------------------------
     //-----------------------------------------------------------------------------
 
 
@@ -307,50 +301,6 @@ int main()
                 }
 
             
-
-            
-            
-
-            
-            
-
-
-            
-            
-           
-            
-        
-            
-            // // écriture du fils dans le pipe[i+1]
-            // // si il ,ne s'agit pas du dernier fils nous écrivons la valeur y dans 
-            // // le pipe suivant (pipe[i+1])
-            // if(currentNode != processNumber -1){
-            //     if(write(pipes[currentNode+1][WRITE_END],&data,sizeof(DataPipes))==-1){
-            //         perror("write");
-            //     }
-            // }else{
-                
-            //     //si c'est le dernier fils, nous réécrivons la valeur dans le tube[0] 
-            //     //afin que le pere puisse la récupérer
-            //     if(write(mainPipe[WRITE_END],&data,sizeof(DataPipes))==-1){
-            //         perror("write");
-            //     }
-            // }
-            
-
-            
-            
-
-            // //fermeture de tous les pipes
-            // for(int j = 0; j < processNumber; j++){
-            //     close(pipes[j][READ_END]);
-            //     close(pipes[j][WRITE_END]);
-            // }
-            // if(currentNode != processNumber -1){
-            //     close(mainPipe[WRITE_END]);
-            //     close(mainPipe[READ_END]);
-            // }
-
             }
             exit(0);
         default :
@@ -366,18 +316,6 @@ int main()
             scanf("%d",&data.operationToExecute);
 
         }while(data.operationToExecute <0 && data.operationToExecute > 3);
-        do{
-            printf("Saisir la cle (decimal number):");
-            scanf("%d",&data.key);
-        }while(data.key<0);
-        do{
-            printf("Saisir la valeur (chaine de caracteres, max 128 chars):");
-            // scanf n'arrive pas à empecher l'utilisateur de ne pas dépasser 128 char donc on utilise fgets
-            scanf("%s",data.val);    
-
-        }while(strlen(data.val) > 127);
-        //---------------------------------------------------------------------------------------
-        
         /*switch case qui va bien -------------------------------------------------------------*/
         //si (0 appelle la fonction exit 
         //si (1) appelle la fonction set
@@ -389,10 +327,23 @@ int main()
                 exitProgramme(data,pipes,mainPipe,processNumber); 
                 break ;
             case 1 :
+                do{
+                    printf("Saisir la cle (decimal number):");
+                    scanf("%d",&data.key);
+                }while(data.key<0);
+                do{
+                    printf("Saisir la valeur (chaine de caracteres, max 128 chars):");
+                    // scanf n'arrive pas à empecher l'utilisateur de ne pas dépasser 128 char donc on utilise fgets
+                    scanf("%s",data.val);    
+                }while(strlen(data.val) > 127);
                 printf("attention je vais set \n");
                 setData(data,pipes[0],mainPipe); 
                 break;
             case 2 :
+                do{
+                    printf("Saisir la cle (decimal number):");
+                    scanf("%d",&data.key);
+                }while(data.key<0);
                 lookupData(data,pipes[0],mainPipe); 
                 break;
             case 3 :
@@ -401,45 +352,12 @@ int main()
             default:
                 printf("le chiffre que vous avez saisie n'est pas ( >-1 et <4 )\n");
         }
-
-        //-----------------------------------------------------------------------------------------
-
-        // // écriture de x par le père dans pipe[0]    
-        // printf("le père a ecrit : %s \n",data.val);
-        // write(pipes[0][WRITE_END],&data,sizeof(DataPipes));
+        //---------------------------------------------------------------------------------------
         
-        // //fermeture de tous les pipes sauf la lecture dans le pipe[0]
-        // printf("le père a fermé tous les pipes\n");
-        // for(int j = 0; j < processNumber; j++){
-        //     if (j != 0){
-        //         close(pipes[j][READ_END]);
-        //     }
-        //     close(pipes[j][WRITE_END]);
-        // }
-
         
-        // //le pere attends que tous les fils aient executé leurs fonctions
-        
-        // for(int j = 0 ; j < processNumber ; j++){
-        //     wait(NULL);
-        // }
 
-        // // le pere procede a la lecture de la valeur y incrémentée par tous les processus fils
-        // printf("le pere essaye de lire\n");
-        // if(read(mainPipe[READ_END],&data,sizeof(data))==-1){
-        //     printf("erreur read %d\n",0);
-        //     perror("read");
-        //     exit(-1);
-        // }
-
-        // printf("le père a lu %d \n",y); 
-        
-        // // le père ferme la derniere extrémité du pipe afin que tous les pipes soient fermés 
-        // // et que le programme puisse etre tué 
-        // close(mainPipe[WRITE_END]);
-        // close(mainPipe[READ_END]);  
     }while(data.operationToExecute != 0);
     return 0;
-    
+    }
 }
  
