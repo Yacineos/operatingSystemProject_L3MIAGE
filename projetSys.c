@@ -1,82 +1,16 @@
+//BINOMES :Oukkal Yacine N° étudiant: 12213245 || Monachon Vivian N° étudiant: 11907866
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include "data.c"
-#include "table.c"
 #include "projetSys.h"
+#include "table.h"
+#include <string.h>
 #define READ_END 0
 #define WRITE_END 1
 
-//fonction qui envoie simultanément à tous les processus fils data de type DataPipes
-//pour leur dire de mourir et ensuite tue le processus appelant ( père )
-// on passe tous les pipe en paramètre 
-// on passe le tube du père aussi juste pour le fun
-void exitProgramme(DataPipes data,int (*pipes)[2],int* mainPipe,int processNumber){
-    //TODO
-    printf("attention on va lancer exit \n");
-    int operationStatus = 0;
-    for(int i = 0 ; i < processNumber ; i++ ){
-        write(pipes[i][WRITE_END],&data,sizeof(DataPipes));
-        read(mainPipe[READ_END],&operationStatus, sizeof(int));
-        if(operationStatus == 0 ){
-            printf("le fils %d n'est pas mort hbibi \n", i);
-        }else{
-            printf("le fils %d est passée à la guillotine \n",i);
-        }
-        wait(NULL);
-    }
-        // on ferme le tube du père coté lecture 
-        close(mainPipe[READ_END]);
 
-}
-
-
-//fonction qui envoie au node 0 data de type DataPipes 
-// le processus fils s'occupera de gérer si c'est à lui d'ajouter le mot (data.val) dans 
-// sa liste chaînée
-// et met le père en mode lecture pour attendre un message succes du fils 
-// si operationStatus == 0 erreur 
-// else succes 
-void setData(DataPipes data ,int* pipe , int* mainPipe ){
-    int operationStatus = 0 ;
-    write(pipe[WRITE_END],&data,sizeof(DataPipes));
-    read(mainPipe[READ_END],&operationStatus,sizeof(int));
-    if(operationStatus == 0){
-        printf("erreur ya 3zrinek\n");
-    }else{
-        printf("bravo fiston bien reçu \n");
-    }
-}
-
-
-
-//fonction qui envoie au node 0 data de type DataPipes 
-// le processus fils s'occupe de vérifier si c'est à lui de retourner la valeur ou non 
-// puis affiche cette valeur dans le terminal
-void lookupData(DataPipes data,int* pipe , int* mainPipe ){
-    //TODO
-    char value[128] = "";
-    write(pipe[WRITE_END],&data,sizeof(DataPipes));
-    read(mainPipe[READ_END],&value,sizeof(char)*128);
-    printf("la valeur de la clé est : %s \n",value);
-}
-
-// fonction dump permet de visualiser l'état actuelle du dictionnaire fragmenté entre les
-// processus fils 
-void dumpDictionnaire(DataPipes data,int (*pipes)[2],int* mainPipe,int processNumber){
-    //TODO
-    int operationStatus = 0 ;
-    for(int i = 0 ; i < processNumber ; i++ ){
-        write(pipes[i][WRITE_END],&data,sizeof(DataPipes));
-        read(mainPipe[READ_END],&operationStatus, sizeof(int));
-        if(operationStatus == 1 ){
-            printf("le fils %d à affiché son dictionnaire \n", i);
-        }else{
-            printf("le fils %d n'a pas réussi à afficher son dictionnaire \n",i);
-        }
-    }
-}
 
 
 int main(int argc,char* argv[]){
@@ -101,7 +35,7 @@ int main(int argc,char* argv[]){
     DataPipes data ;
     data.operationToExecute = 0 ;
     data.key = 0 ;
-    strcpy(data.val,"wesh frero t'es keblo haha ");
+    strcpy(data.val,"debug");
     //-----------------------------------------------------------------------------
     
     
@@ -153,32 +87,15 @@ int main(int argc,char* argv[]){
                 close(mainPipe[READ_END]);
             //--------------------------------------------------------------
             
-            
-            
             /* fermeture de tous les pipes entre les childs 
-            // sauf la où on va lire et écrire
-            ---------------------------------------------------------------*/
+             * sauf la où on va lire et écrire
+             * -------------------------------------------------------------*/
+                closeUnusedPipes(pipes,processNumber,currentNode);
+            
+            
                 //TODO 1.3
-                for(int j = 0 ; j < processNumber ; j++){
-                    // on est dans le dernier process ?
-                    if(currentNode == processNumber-1){
-                            // pour éviter de fermer la même chose 10000fois 
-                            // mais normalement il fonctionne même sans le if  
-                            if(j!=currentNode){
-                                close(pipes[j][READ_END]);
-                                close(pipes[j+1][WRITE_END]);
-                            }else{
-                                close(pipes[0][WRITE_END]);
-                            }
-                    }else{
-                        // on est pas dans les tubes en relation avec le processus actuelle
-                        if(j!=currentNode){
-                            close(pipes[j][READ_END]);
-                            close(pipes[j+1][WRITE_END]);
-                        }
-                        
-                    }
-                }
+               
+            
             //---------------------------------------------------------------
             while(1){
                 
@@ -191,9 +108,9 @@ int main(int argc,char* argv[]){
                     exit(-1);
                 }
 
-                // affichage de ce qu'on a lu
-                printf("je suis le fils %d et j'ai réussi à lire :",currentNode); 
-                affichageData(data);
+                // affichage de ce qu'on a lu pour le debug
+                //printf("je suis le fils %d et j'ai réussi à lire :",currentNode); 
+                //affichageData(data);
 
                 switch (data.operationToExecute)
                 {
@@ -238,14 +155,20 @@ int main(int argc,char* argv[]){
                     // suis je le bon fils ?
                     if(data.key % processNumber == currentNode ){
                         int operationStatus = 0;
-                        //oui , on store le mot dans notre dictionnaire
-                        store(&tete,data.key,data.val);
-                        operationStatus = 1 ;
-                        write(mainPipe[WRITE_END],&operationStatus,sizeof(int));
-                        printf("node%d I got u bro , c'est bien enregistré \n",currentNode);
+                        // est ce que la clé existe déjà ?
+                        if(lookup(tete,data.key) != NULL){
+                            printf("node%d la clé existe déjà \n",currentNode);
+                            operationStatus = 0 ;
+                            write(mainPipe[WRITE_END],&operationStatus,sizeof(int));
+                        }else{
+                            //oui , on store le mot dans notre dictionnaire
+                            store(&tete,data.key,data.val);
+                            operationStatus = 1 ;
+                            write(mainPipe[WRITE_END],&operationStatus,sizeof(int));
+                        }
+                        
 
                     }else{
-                        printf("node%d wesh frero c'est pas à moi de le faire \n",currentNode);
                         //non , du coup on envoie la structure au prochain fils   
                         write(pipes[currentNode+1][WRITE_END],&data,sizeof(DataPipes));
                     }
@@ -267,11 +190,13 @@ int main(int argc,char* argv[]){
                     if(data.key % processNumber == currentNode ){
                         //oui , on cherche la valeur dans notre dictionnaire
                         char* value = lookup(tete,data.key);
+                        if(value == NULL){
+                            printf("node%d je n'ai pas trouvé la valeur \n",currentNode);
+                            value = "je n'ai pas trouvé la valeur";
+                        }    
                         // on envoie la valeur dans le tube
                         write(mainPipe[WRITE_END],value,sizeof(char)*128);
-                        printf("node%d I got u bro , c'est bien enregistré \n",currentNode);
                     }else{
-                        printf("node%d wesh frero c'est pas à moi de le faire \n",currentNode);
                         //non , du coup on envoie la structure au prochain fils   
                         write(pipes[currentNode+1][WRITE_END],&data,sizeof(DataPipes));
                     }
@@ -283,7 +208,7 @@ int main(int argc,char* argv[]){
 
                 // si (data -> operationToExecute == 3 )
                 //      l'operation 3 correspond à un dump donc :
-                //           - en cours de reflexion 
+                //          on envoie le data du père et on utilise la fonction display
                 //-----------------------------------------------------------------
                     //TODO 
                 case 3 :
@@ -307,56 +232,7 @@ int main(int argc,char* argv[]){
            break;
         }
     }
-    //le père commence sa partie --------------------------------------------------------------------
-    do{
-        //preparation du struct ---------------------------------------------------------------------
-        // lire les données saisie par l'utilisateurs et utilisation de do while pour controler l'input
-        do{
-            printf("Saisir commande (0 = exit, 1 = set, 2 = lookup, 3 = dump):");
-            scanf("%d",&data.operationToExecute);
-
-        }while(data.operationToExecute <0 && data.operationToExecute > 3);
-        /*switch case qui va bien -------------------------------------------------------------*/
-        //si (0 appelle la fonction exit 
-        //si (1) appelle la fonction set
-        //si (2) appelle la fonction lookup
-        //si (3) appelle la fonction dump
-        switch(data.operationToExecute){
-            case 0 :
-                printf("on va exit le programme \n");
-                exitProgramme(data,pipes,mainPipe,processNumber); 
-                break ;
-            case 1 :
-                do{
-                    printf("Saisir la cle (decimal number):");
-                    scanf("%d",&data.key);
-                }while(data.key<0);
-                do{
-                    printf("Saisir la valeur (chaine de caracteres, max 128 chars):");
-                    // scanf n'arrive pas à empecher l'utilisateur de ne pas dépasser 128 char donc on utilise fgets
-                    scanf("%s",data.val);    
-                }while(strlen(data.val) > 127);
-                printf("attention je vais set \n");
-                setData(data,pipes[0],mainPipe); 
-                break;
-            case 2 :
-                do{
-                    printf("Saisir la cle (decimal number):");
-                    scanf("%d",&data.key);
-                }while(data.key<0);
-                lookupData(data,pipes[0],mainPipe); 
-                break;
-            case 3 :
-                dumpDictionnaire(data,pipes,mainPipe,processNumber);
-                break;
-            default:
-                printf("le chiffre que vous avez saisie n'est pas ( >-1 et <4 )\n");
-        }
-        //---------------------------------------------------------------------------------------
-        
-        
-
-    }while(data.operationToExecute != 0);
+    controller(data,pipes,mainPipe,processNumber);
     return 0;
     }
 }
